@@ -1,73 +1,79 @@
 @echo off
-chcp 65001 > nul
+setlocal EnableExtensions
+chcp 65001 >nul
 title Thai Name Transliteration API Server
-
 cd /d "%~dp0"
 
+:check_environment
 echo ============================================================
-echo   Checking environment and dependencies...
+echo   ตรวจสอบ Node.js และ Library ที่จำเป็น
 echo ============================================================
-
-:: 1. ตรวจสอบว่ามี Node.js ในเครื่องหรือยัง
 where node >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [ERROR] เครื่องนี้ยังไม่ได้ติดตั้ง Node.js!
-    echo กรุณาดาวน์โหลดและติดตั้ง Node.js จาก https://nodejs.org ก่อนใช้งาน
-    echo.
+if errorlevel 1 (
+    echo [ERROR] ไม่พบ Node.js กรุณาติดตั้งจาก https://nodejs.org แล้วเปิดไฟล์นี้ใหม่
     pause
-    exit /b
+    exit /b 1
 )
-
-:: 2. ตรวจสอบว่ามีไฟล์ระบบ server.js อยู่หรือไม่
+where npm >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] ไม่พบ npm ซึ่งติดตั้งมาพร้อม Node.js กรุณาติดตั้ง Node.js ใหม่
+    pause
+    exit /b 1
+)
 if not exist server.js (
-    echo [ERROR] ไม่พบไฟล์ server.js ในโฟลเดอร์นี้!
-    echo กรุณานำไฟล์ server.js มาไว้ที่เดียวกับไฟล์ .bat นี้
-    echo.
+    echo [ERROR] ไม่พบ server.js ในโฟลเดอร์นี้
     pause
-    exit /b
+    exit /b 1
 )
 
-:: 3. สร้าง package.json อัตโนมัติหากยังไม่มี
 if not exist package.json (
-    echo [INFO] ไม่พบ package.json กำลังสร้างไฟล์ตั้งค่าให้อัตโนมัติ...
-    (
-      echo {
-      echo   "name": "thai-name-api",
-      echo   "version": "4.3.0",
-      echo   "main": "server.js",
-      echo   "scripts": {
-      echo     "start": "node server.js"
-      echo   },
-      echo   "dependencies": {
-      echo     "cors": "^2.8.5",
-      echo     "express": "^4.18.2"
-      echo   }
-      echo }
-    ) > package.json
+    echo [ERROR] ไม่พบ package.json จึงไม่สามารถตรวจสอบเวอร์ชันและติดตั้ง Library ได้
+    pause
+    exit /b 1
 )
 
-:: 4. ตรวจสอบโฟลเดอร์ node_modules (ถ้าย้ายเครื่องใหม่แล้วยังไม่มี จะทำการโหลดให้ทันที)
-if not exist node_modules\express (
-    echo [INFO] ตรวจสอบไม่พบ node_modules (เครื่องใหม่^)...
-    echo [INFO] กำลังดาวน์โหลดและติดตั้ง Library ^(Express, Cors^) ให้อัตโนมัติ...
-    echo ------------------------------------------------------------
+for /f "delims=" %%V in ('node -p "require('./package.json').version || 'ไม่ระบุ'" 2^>nul') do set "APP_VERSION=%%V"
+echo [INFO] เวอร์ชัน package.json: %APP_VERSION%
+
+:: ตรวจ dependency ด้วยการ require จริง ไม่เช็คแค่ชื่อโฟลเดอร์
+node -e "require('express'); require('cors')" >nul 2>nul
+if errorlevel 1 (
+    echo [INFO] Library ไม่ครบหรือโหลดใช้ไม่ได้ กำลังติดตั้งจาก package.json...
     call npm install
-    echo ------------------------------------------------------------
-    if not exist node_modules\express (
-        echo [ERROR] ติดตั้ง Library ไม่สำเร็จ - ตรวจสอบอินเทอร์เน็ตแล้วเปิดไฟล์นี้ใหม่
-        echo.
+    if errorlevel 1 (
+        echo [ERROR] npm install ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตและ package.json
         pause
-        exit /b
+        exit /b 1
     )
-    echo [SUCCESS] ติดตั้ง Library เรียบร้อยแล้ว!
-    echo.
 )
 
-:: 5. เริ่มรันเซิร์ฟเวอร์ทันที
-echo ============================================================
-echo   Starting API Server (node server.js)...
-echo ============================================================
-echo.
-node server.js
+node -e "require('express'); require('cors')" >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] ยังเรียกใช้ Express/CORS ไม่ได้หลังติดตั้ง กรุณาตรวจสอบข้อผิดพลาด npm
+    pause
+    exit /b 1
+)
+echo [SUCCESS] ตรวจพบ Node.js, Express และ CORS ครบแล้ว
 
-pause
+:run_server
+echo.
+echo ============================================================
+echo   เริ่ม Translation API (server.js) เวอร์ชัน %APP_VERSION%
+echo   กด Ctrl+C เพื่อหยุด แล้วเลือกว่าจะรันใหม่หรือออก
+echo ============================================================
+node server.js
+echo.
+echo [INFO] Server หยุดทำงาน (รหัสออก %errorlevel%)
+
+:after_server
+echo.
+echo [1] เริ่ม/รัน Server ใหม่
+echo [2] ออกจากโปรแกรม
+choice /C 12 /N /M "เลือก 1 หรือ 2: "
+if errorlevel 2 goto exit_program
+if errorlevel 1 goto run_server
+
+:exit_program
+echo [INFO] ออกจากโปรแกรมแล้ว
+endlocal
+exit /b 0
