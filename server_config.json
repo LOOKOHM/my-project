@@ -1,0 +1,4 @@
+{
+  "_note": "useGoogle: true = ใช้ Google ช่วยแปลชื่อ / false = ปิด Google ใช้เฉพาะ name_overrides.txt + ตัวแปลงออฟไลน์ (เร็ว ไม่โดน 429 แต่แม่นน้อยลง) แก้ไฟล์นี้แล้วมีผลทันที",
+  "useGoogle": true
+}
